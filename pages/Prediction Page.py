@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jul  4 21:07:38 2025
+
+@author: Oreoluwa
+"""
+
 import streamlit as st
 import pandas as pd
 import joblib
@@ -5,6 +12,10 @@ from streamlit_option_menu import option_menu
 from streamlit_lottie import st_lottie
 import requests
 import json
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+import numpy as np
 
 # Set page configuration FIRST
 st.set_page_config(
@@ -32,14 +43,16 @@ def load_lottie(url_or_path):
 lottie_education = load_lottie("https://assets8.lottiefiles.com/packages/lf20_0yfsb3a1.json") or {}
 lottie_success = load_lottie("https://assets4.lottiefiles.com/packages/lf20_auwi6jpu.json") or {}
 
-# Then load other resources
+# Load or train model
 @st.cache_resource
-def load_model_and_data():
-    model = joblib.load('Attendance_Prediction_Model.joblib')
-    df = pd.read_csv('computer_science_courses_dataset.csv')
+def load_or_train_model():
+    # Try to load existing model
+    model = joblib.load('ensembleModel.joblib')
+    df = pd.read_csv('Attendance_Dataset2.csv')
     return model, df
+    
 
-model, df = load_model_and_data()
+model, df = load_or_train_model()
 
 # Custom CSS for styling
 st.markdown("""
@@ -94,8 +107,8 @@ with st.sidebar:
     
     selected = option_menu(
         menu_title=None,
-        options=["Predict Attendance", "About"],
-        icons=["calculator", "info-circle"],
+        options=["Predict Attendance", "Train Model", "About"],
+        icons=["calculator", "gear", "info-circle"],
         menu_icon="cast",
         default_index=0,
         styles={
@@ -147,8 +160,8 @@ if selected == "Predict Attendance":
         st.session_state.form_data['selected_course'] = None  # Reset course selection
     
     # Get courses for selected year
-    year_courses = df[df['Year'] == selected_year][['Course_Code', 'Course_Title', 'Requirement_Status', 'Course_Credits']].drop_duplicates()
-    course_options = [f"{row['Course_Code']} - {row['Course_Title']}" for _, row in year_courses.iterrows()]
+    year_courses = df[df['Year'] == selected_year][[ 'Course Title','Course Code','Credits', 'Status']].drop_duplicates()
+    course_options = [f"{row['Course Code']} - {row['Course Title']}" for _, row in year_courses.iterrows()]
     
     # Course selection
     selected_course = st.selectbox(
@@ -165,15 +178,15 @@ if selected == "Predict Attendance":
     
     # Get course details
     selected_code = selected_course.split(" - ")[0]
-    course_details = year_courses[year_courses['Course_Code'] == selected_code].iloc[0]
+    course_details = year_courses[year_courses['Course Code'] == selected_code].iloc[0]
     
     with st.expander("Selected Course Details", expanded=True):
         cols = st.columns(4)
-        cols[0].metric("Course Code", course_details['Course_Code'])
-        cols[1].metric("Credits", course_details['Course_Credits'])
+        cols[0].metric("Course Code", course_details['Course Code'])
+        cols[1].metric("Credits", course_details['Credits'])
         cols[2].metric("Year", selected_year)
-        cols[3].metric("Requirement", course_details['Requirement_Status'])
-        st.caption(f"Course Title: {course_details['Course_Title']}")
+        cols[3].metric("Requirement", course_details['Status'])
+        st.caption(f"Course Title: {course_details['Course Title']}")
     
     st.subheader("Additional Information")
     col1, col2 = st.columns(2)
@@ -217,21 +230,20 @@ if selected == "Predict Attendance":
     
     if submit_button:
         input_data = {
-            'Course_Credits': [course_details['Course_Credits']],
-            'Requirement_Status': [course_details['Requirement_Status']],
-            'Materials_Available': [materials_available],
+            'Credits': [course_details['Credits']],
+            'Status': [course_details['Status']],
+            'Materials': [materials_available],
             'Year': [selected_year],
             'Grade': [desired_grade],
             'Mode': [mode]
         }
         
         input_df = pd.DataFrame(input_data)
-        input_df['Materials_Available'] = input_df['Materials_Available'].map({'Yes': 1, 'No': 0})
+        input_df['Materials'] = input_df['Materials'].map({'Yes': 1, 'No': 0})
         mode_mapping = {"Physical": 2, "Hybrid": 1, "Online": 0}
         input_df['Mode'] = input_df['Mode'].map(mode_mapping)
         status_mapping = {"C": 2, "E": 1, "R": 0}
-        input_df['Requirement_Status'] = input_df['Requirement_Status'].map(status_mapping)
-        #input_df['Year_Credits'] = input_df['Year'] * input_df['Course_Credits']
+        input_df['Status'] = input_df['Status'].map(status_mapping)
         
         predicted_attendance = model.predict(input_df)[0]
         predicted_attendance = max(10, min(100, round(predicted_attendance, 1)))
@@ -259,11 +271,68 @@ if selected == "Predict Attendance":
                 st.info("Moderate attendance is recommended. Balance your time between classes and self-study.")
             else:
                 st.warning("Lower attendance is predicted, but make sure to compensate with thorough self-study.")
-                
-            attendance_metric = st.empty()
-            attendance_metric.metric("Recommended Attendance", f"{predicted_attendance}%")
-            st.progress(predicted_attendance/100)
 
+elif selected == "Train Model":
+    st.markdown("<h1 class='header'>Train the Prediction Model</h1>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div style='background-color: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);'>
+        <h3 style='color: #2c3e50;'>Upload New Training Data</h3>
+        <p>Upload a CSV file with updated course attendance data to retrain the prediction model.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+    
+    if uploaded_file is not None:
+        try:
+            new_data = pd.read_csv(uploaded_file)
+            
+            # Validate the uploaded data
+            required_columns = ['Credits', 'Requirement Status', 'Materials', 
+                              'Year', 'Grade', 'Mode', 'Attendance']
+            
+            if all(col in new_data.columns for col in required_columns):
+                st.success("Data validation successful!")
+                
+                # Show preview
+                st.subheader("Data Preview")
+                st.dataframe(new_data.head())
+                
+                # Preprocess data
+                new_data['Materials_Available'] = new_data['Materials_Available'].map({'Yes': 1, 'No': 0})
+                mode_mapping = {"Physical": 2, "Hybrid": 1, "Online": 0}
+                new_data['Mode'] = new_data['Mode'].map(mode_mapping)
+                status_mapping = {"C": 2, "E": 1, "R": 0}
+                new_data['Requirement_Status'] = new_data['Requirement_Status'].map(status_mapping)
+                
+                # Split data
+                X = new_data.drop('Attendance', axis=1)
+                y = new_data['Attendance']
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                
+                # Train model
+                if st.button("Train New Model"):
+                    with st.spinner("Training model..."):
+                        model = RandomForestRegressor(n_estimators=100, random_state=42)
+                        model.fit(X_train, y_train)
+                        
+                        # Evaluate model
+                        score = model.score(X_test, y_test)
+                        
+                        # Save model and data
+                        joblib.dump(model, 'Attendance_Prediction_Model.joblib')
+                        new_data.to_csv('Attendance_Dataset.csv', index=False)
+                        
+                        st.success(f"Model trained successfully! R² score: {score:.2f}")
+                        st.balloons()
+            else:
+                st.error("Uploaded file doesn't contain all required columns.")
+                st.write(f"Required columns: {', '.join(required_columns)}")
+                
+        except Exception as e:
+            st.error(f"Error processing file: {str(e)}")
+    
 elif selected == "About":
     st.markdown("<h1 class='header'>About the Attendance Predictor</h1>", unsafe_allow_html=True)
     
