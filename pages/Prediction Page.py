@@ -4,7 +4,7 @@ Created on Fri Jul  4 21:07:38 2025
 
 @author: Oreoluwa
 """
-
+# Import required libraries
 import streamlit as st
 import pandas as pd
 import joblib
@@ -12,10 +12,7 @@ from streamlit_option_menu import option_menu
 from streamlit_lottie import st_lottie
 import requests
 import json
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-import numpy as np
+
 
 # Set page configuration FIRST
 st.set_page_config(
@@ -45,58 +42,90 @@ lottie_success = load_lottie("https://assets4.lottiefiles.com/packages/lf20_auwi
 
 # Load or train model
 @st.cache_resource
-def load_or_train_model():
+def load_model():
     # Try to load existing model
     model = joblib.load('ensembleModel.joblib')
     df = pd.read_csv('Attendance_Dataset2.csv')
     return model, df
     
 
-model, df = load_or_train_model()
+model, df = load_model()
+
+
 
 # Custom CSS for styling
 st.markdown("""
     <style>
-    .main {
-        background-color: #f8f9fa;
+    
+    :root {
+        --background-color: white;
+        --text-color: black;
+        --block-background-color: #ffffff;
     }
-    .stSelectbox, .stRadio, .stSlider, .stNumberInput {
-        background-color: white;
-        border-radius: 10px;
-        padding: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+
+    [data-theme="dark"] {
+        --background-color: #0e1117;
+        --text-color: #ffffff;
+        --block-background-color: #262730;
     }
+
+    /* Theme-adaptive colors */
+    html, body, .main {
+        background-color: var(--background-color);
+        color: var(--text-color);
+    }
+
+    /* Feature and result cards */
+    .feature-card, .result-box, .testimonial-card {
+        background-color: var(--block-background-color);
+        color: var(--text-color);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 15px 0;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-left: 5px solid #4CAF50;
+    }
+
+    /* Headers */
+    .header {
+        text-align: center;
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    /* Buttons */
     .stButton>button {
-        background-color: #4CAF50;
-        color: white;
+        background-color: var(--block-background-color);
+        color: var(--text-color);
         border-radius: 10px;
         padding: 10px 24px;
         font-weight: bold;
         transition: all 0.3s;
     }
+
     .stButton>button:hover {
-        background-color: #45a049;
+        background-color: #45a049 !important;
         transform: scale(1.05);
     }
-    .result-box {
-        background-color: white;
-        border-radius: 15px;
-        padding: 20px;
-        margin-top: 20px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        border-left: 5px solid #4CAF50;
-    }
-    .header {
-        color: #2c3e50;
-        text-align: center;
-        margin-bottom: 30px;
-    }
+
+    /* Sidebar styling */
     .sidebar .sidebar-content {
-        background-color: #2c3e50;
-        color: white;
+        background-color: var(--block-background-color);
+        color: var(--text-color);
+    }
+
+    /* Responsive tweaks */
+    @media screen and (max-width: 768px) {
+        .header {
+            font-size: 1.5rem;
+        }
+        .feature-icon {
+            font-size: 2rem;
+        }
     }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
+
 
 # Sidebar with navigation
 with st.sidebar:
@@ -107,7 +136,7 @@ with st.sidebar:
     
     selected = option_menu(
         menu_title=None,
-        options=["Predict Attendance", "Train Model", "About"],
+        options=["Predict Attendance", "About"],
         icons=["calculator", "gear", "info-circle"],
         menu_icon="cast",
         default_index=0,
@@ -129,11 +158,12 @@ if selected == "Predict Attendance":
             st_lottie(lottie_education, height=100, key="header_animation")
     
     st.markdown("""
-    <div style='background-color: #e8f4f8; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
+    <div style='background-color: var(--block-background-color); color: var(--text-color); padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
     This tool helps you predict the required attendance percentage based on your course selection and preferences. 
     Select your year and course from the dropdowns, then provide additional information to get your personalized prediction.
     </div>
     """, unsafe_allow_html=True)
+    
     
     # Initialize session state for form if not exists
     if 'form_data' not in st.session_state:
@@ -272,75 +302,21 @@ if selected == "Predict Attendance":
             else:
                 st.warning("Lower attendance is predicted, but make sure to compensate with thorough self-study.")
 
-elif selected == "Train Model":
-    st.markdown("<h1 class='header'>Train the Prediction Model</h1>", unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div style='background-color: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);'>
-        <h3 style='color: #2c3e50;'>Upload New Training Data</h3>
-        <p>Upload a CSV file with updated course attendance data to retrain the prediction model.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
-    
-    if uploaded_file is not None:
-        try:
-            new_data = pd.read_csv(uploaded_file)
-            
-            # Validate the uploaded data
-            required_columns = ['Credits', 'Requirement Status', 'Materials', 
-                              'Year', 'Grade', 'Mode', 'Attendance']
-            
-            if all(col in new_data.columns for col in required_columns):
-                st.success("Data validation successful!")
-                
-                # Show preview
-                st.subheader("Data Preview")
-                st.dataframe(new_data.head())
-                
-                # Preprocess data
-                new_data['Materials_Available'] = new_data['Materials_Available'].map({'Yes': 1, 'No': 0})
-                mode_mapping = {"Physical": 2, "Hybrid": 1, "Online": 0}
-                new_data['Mode'] = new_data['Mode'].map(mode_mapping)
-                status_mapping = {"C": 2, "E": 1, "R": 0}
-                new_data['Requirement_Status'] = new_data['Requirement_Status'].map(status_mapping)
-                
-                # Split data
-                X = new_data.drop('Attendance', axis=1)
-                y = new_data['Attendance']
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-                
-                # Train model
-                if st.button("Train New Model"):
-                    with st.spinner("Training model..."):
-                        model = RandomForestRegressor(n_estimators=100, random_state=42)
-                        model.fit(X_train, y_train)
-                        
-                        # Evaluate model
-                        score = model.score(X_test, y_test)
-                        
-                        # Save model and data
-                        joblib.dump(model, 'Attendance_Prediction_Model.joblib')
-                        new_data.to_csv('Attendance_Dataset.csv', index=False)
-                        
-                        st.success(f"Model trained successfully! R² score: {score:.2f}")
-                        st.balloons()
-            else:
-                st.error("Uploaded file doesn't contain all required columns.")
-                st.write(f"Required columns: {', '.join(required_columns)}")
-                
-        except Exception as e:
-            st.error(f"Error processing file: {str(e)}")
+
     
 elif selected == "About":
     st.markdown("<h1 class='header'>About the Attendance Predictor</h1>", unsafe_allow_html=True)
     
     st.markdown("""
-    <div style='background-color: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);'>
+    
         <h3 style='color: #2c3e50;'>📊 How It Works</h3>
         <p>This application uses machine learning to predict the required attendance percentage for Computer Science courses at Lagos State University.</p>
         
+    """, unsafe_allow_html=True)
+    
+    
+    st.markdown("""
+       
         <h3 style='color: #2c3e50; margin-top: 20px;'>🔍 Model Details</h3>
         <p>The prediction model was trained on historical course data and considers:</p>
         <ul>
@@ -348,11 +324,15 @@ elif selected == "About":
             <li>Learning mode (physical, hybrid, online)</li>
             <li>Availability of course materials</li>
             <li>Student's desired grade</li>
-        </ul>
+        </ul>""", unsafe_allow_html=True)
         
+    
+    st.markdown("""
         <h3 style='color: #2c3e50; margin-top: 20px;'>🎯 Purpose</h3>
         <p>This tool helps students plan their study time effectively by understanding the attendance requirements needed to achieve their academic goals.</p>
+    """, unsafe_allow_html=True)
         
+    st.markdown("""
         <h3 style='color: #2c3e50; margin-top: 20px;'>📝 Note</h3>
         <p>Predictions are based on statistical patterns and should be used as guidance rather than absolute requirements.</p>
     </div>
