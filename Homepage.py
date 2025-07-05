@@ -26,70 +26,89 @@ def load_lottie(url_or_path):
         st.warning(f"Animation loading failed: {str(e)}")
         return None
 
-# Load animations safely
-lottie_education = load_lottie("https://assets8.lottiefiles.com/packages/lf20_0yfsb3a1.json") or {}
-lottie_analytics = load_lottie("https://assets1.lottiefiles.com/packages/lf20_uzjci3wz.json") or {}
+
+
+# Load animations (with fallback to empty dict if loading fails)
+try:
+    lottie_education = load_lottie("https://assets8.lottiefiles.com/packages/lf20_0yfsb3a1.json") or {}
+    lottie_analytics = load_lottie("https://assets1.lottiefiles.com/packages/lf20_uzjci3wz.json") or {}
+
+except:
+    pass
+
 
 # Custom CSS for styling
 st.markdown("""
     <style>
-    .main {
-        background-color: #f8f9fa;
+    
+    :root {
+        --background-color: white;
+        --text-color: black;
+        --block-background-color: #ffffff;
     }
-    .header {
-        color: #2c3e50;
-        text-align: center;
-        margin-bottom: 30px;
+
+    [data-theme="dark"] {
+        --background-color: #0e1117;
+        --text-color: #ffffff;
+        --block-background-color: #262730;
     }
-    .feature-card {
-        background-color: white;
-        border-radius: 15px;
-        padding: 25px;
-        margin: 15px 0;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        transition: transform 0.3s;
+    /* Theme-adaptive colors */
+    html, body, .main {
+        background-color: var(--background-color);
+        color: var(--text-color);
     }
-    .feature-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-    }
-    .feature-icon {
-        font-size: 2.5rem;
-        margin-bottom: 15px;
-        color: #4CAF50;
-    }
-    .cta-button {
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 10px;
-        padding: 12px 28px;
-        font-weight: bold;
-        text-align: center;
-        display: block;
-        margin: 20px auto;
-        width: fit-content;
-        transition: all 0.3s;
-        text-decoration: none;
-    }
-    .cta-button:hover {
-        background-color: #45a049;
-        transform: scale(1.05);
-        color: white;
-    }
-    .sidebar .sidebar-content {
-        background-color: #2c3e50;
-        color: white;
-    }
-    .testimonial-card {
-        background-color: white;
+
+    /* Feature and result cards */
+    .feature-card, .result-box, .testimonial-card {
+        background-color: var(--block-background-color);
+        color: var(--text-color);
         border-radius: 15px;
         padding: 20px;
         margin: 15px 0;
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         border-left: 5px solid #4CAF50;
     }
+
+    /* Headers */
+    .header {
+        text-align: center;
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    /* Buttons */
+    .stButton>button {
+        background-color: #4CAF50 !important;
+        color: white !important;
+        border-radius: 10px;
+        padding: 10px 24px;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+
+    .stButton>button:hover {
+        background-color: #45a049 !important;
+        transform: scale(1.05);
+    }
+
+    /* Sidebar styling */
+    .sidebar .sidebar-content {
+        background-color: #2c3e50;
+        color: white;
+    }
+
+    /* Responsive tweaks */
+    @media screen and (max-width: 768px) {
+        .header {
+            font-size: 1.5rem;
+        }
+        .feature-icon {
+            font-size: 2rem;
+        }
+    }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
+
 
 # Sidebar with navigation
 with st.sidebar:
@@ -100,7 +119,7 @@ with st.sidebar:
     
     selected = option_menu(
         menu_title=None,
-        options=["Home", "Predict Attendance", "About"],
+        options=["Home"],
         icons=["house", "calculator", "info-circle"],
         menu_icon="cast",
         default_index=0,
@@ -135,8 +154,8 @@ if selected == "Home":
     st.markdown("---")
     st.markdown("<h2 style='text-align: center; color: #2c3e50;'>Key Features</h2>", unsafe_allow_html=True)
     
+    # Feature cards in three columns
     col1, col2, col3 = st.columns(3)
-    
     with col1:
         st.markdown("""
         <div class='feature-card'>
@@ -166,7 +185,7 @@ if selected == "Home":
 
     # How It Works Section
     st.markdown("---")
-    st.markdown("<h2 style='text-align: center; color: #2c3e50;'>How It Works</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;background-color: var(--block-background-color); color: var(--text-color);'>How It Works</h2>", unsafe_allow_html=True)
     
     steps = [
         {"icon": "1️⃣", "title": "Select Your Course", "desc": "Choose from all Computer Science courses at LASUCOM"},
@@ -174,9 +193,10 @@ if selected == "Home":
         {"icon": "3️⃣", "title": "Get Your Prediction", "desc": "Receive personalized attendance recommendations"}
     ]
     
+    # Display each step
     for step in steps:
         st.markdown(f"""
-        <div style='display: flex; align-items: center; margin: 20px 0; padding: 15px; background-color: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1)'>
+        <div style='display: flex; align-items: center; margin: 20px 0; padding: 15px;background-color: var(--block-background-color); color: var(--text-color); border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1)'>
             <div style='font-size: 2rem; margin-right: 20px;'>{step['icon']}</div>
             <div>
                 <h3 style='margin: 0; color: #2c3e50;'>{step['title']}</h3>
@@ -186,11 +206,11 @@ if selected == "Home":
         """, unsafe_allow_html=True)
 
 
-    # Final CTA
+    # # Call-to-action button
     st.markdown("---")
     st.markdown("<h2 style='text-align: center; color: #2c3e50;'>Ready to Optimize Your Attendance?</h2>", unsafe_allow_html=True)
     
     if st.button("Start Predicting Now →", key="bottom_cta", type="primary"):
         st.switch_page("pages/Prediction Page.py")
-        st.rerun()
+        st.rerun()#Refresh the page
     
